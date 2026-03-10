@@ -1,0 +1,57 @@
+[project]
+name = "lineage-mcp"
+version = "0.1.0"
+description = "Lineage MCP Server"
+authors = [ { name = "Lineage Foundation" } ]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "lineage @ git+https://github.com/lineage-foundation/sdk-python.git",
+  "python-dotenv>=1.0.1",
+  "uvicorn>=0.30.0",
+  "mcp",
+  "pydantic>=2.10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/lineage-foundation/mcp"
+Source = "https://github.com/lineage-foundation/mcp"
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "pytest>=8",
+  "pytest-cov>=5",
+  "httpx>=0.28",
+]
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+mypy_path = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

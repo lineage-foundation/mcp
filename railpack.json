@@ -1,0 +1,6 @@
+{
+  "deploy": {
+    "startCommand": "/app/.venv/bin/uvicorn lineage_mcp.server:app --host 0.0.0.0 --port ${PORT:-8000}"
+  }
+}
+
