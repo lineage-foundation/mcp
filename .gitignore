@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.egg-info/
+*.py[cod]
+*.pyo
+*.pyd
+.build/
+.venv/
+.env
+
+# uv
+# keep uv.lock committed for Railpack build determinism
+
+# IDE
+.vscode/
+.idea/
+
+# pytest
+.pytest_cache/
+
+
