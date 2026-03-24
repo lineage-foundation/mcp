@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from functools import lru_cache
 
 from mcp.server.fastmcp import FastMCP
 import os
@@ -27,6 +28,12 @@ from . import prompts as prompt_catalog
 mcp = FastMCP("Lineage MCP Server", stateless_http=True)
 
 
+@lru_cache()
+def get_shared_blockchain_client():
+    cfg = get_config()
+    return create_blockchain_client(cfg)
+
+
 @mcp.tool()
 def health() -> dict:
     return health_impl()
@@ -39,8 +46,7 @@ def version() -> dict:
 
 @mcp.tool(name="get-latest-block")
 def blockchain_get_latest_block() -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = get_latest_block(client)
     return resp.model_dump()
 
@@ -61,48 +67,42 @@ def wallet_fetch_balance_tool(addresses: list[str]) -> dict:
 
 @mcp.tool(name="get-total-supply")
 def blockchain_get_total_supply() -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = get_total_supply(client)
     return resp.model_dump()
 
 
 @mcp.tool(name="get-issued-supply")
 def blockchain_get_issued_supply() -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = get_issued_supply(client)
     return resp.model_dump()
 
 
 @mcp.tool(name="get-block-by-number")
 def blockchain_get_block_by_number(height: int) -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = get_block_by_number(client, height)
     return resp.model_dump()
 
 
 @mcp.tool(name="get-entry-by-hash")
 def blockchain_get_entry_by_hash(hash: str) -> dict:  # noqa: A002
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = get_entry_by_hash(client, hash)
     return resp.model_dump()
 
 
 @mcp.tool(name="get-transaction-by-hash")
 def blockchain_get_transaction_by_hash(tx_hash: str) -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = get_transaction_by_hash(client, tx_hash)
     return resp.model_dump()
 
 
 @mcp.tool(name="fetch-transactions")
 def blockchain_fetch_transactions(tx_hashes: list[str]) -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
+    client = get_shared_blockchain_client()
     resp = fetch_transactions(client, tx_hashes)
     return resp.model_dump()
 
