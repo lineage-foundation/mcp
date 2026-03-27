@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Optional
 from functools import lru_cache
+from decimal import Decimal
 
 from mcp.server.fastmcp import FastMCP
 import os
 
 from .clients import create_blockchain_client
 from .config import get_config
-from .schemas import BalanceRequest
 from .tools_blockchain import (
     get_latest_block,
     get_total_supply,
@@ -18,9 +18,14 @@ from .tools_blockchain import (
     get_transaction_by_hash,
     fetch_transactions,
 )
-from .tools_wallet import get_balance as wallet_balance, fetch_balance as wallet_fetch_balance
+from .tools_wallet import (
+    get_balance as wallet_balance,
+    fetch_balance as wallet_fetch_balance,
+    send_transaction as wallet_send_transaction,
+    generate_seed_phrase as gen_seed_impl,
+    generate_keypair as gen_keypair_impl,
+)
 from .tools_health import health as health_impl, version as version_impl
-from .tools_wallet import generate_seed_phrase as gen_seed_impl, generate_keypair as gen_keypair_impl
 from . import prompts as prompt_catalog
 
 
@@ -117,9 +122,31 @@ def wallet_generate_keypair(seedPhrase: Optional[str] = None) -> dict:  # noqa: 
     return gen_keypair_impl(seed_phrase=seedPhrase)
 
 
+@mcp.tool(name="transfer-funds")
+def wallet_transfer_funds_tool(destination: str, amount: Decimal) -> dict:
+    print(
+        f"[tool] wallet.transfer_funds invoked with destination={destination}, amount={amount}",
+        flush=True,
+    )
+    cfg = get_config()
+    if not cfg.lineage_passphrase:
+        return {
+            "ok": False,
+            "id": "",
+            "status": "Error",
+            "reason": "Server passphrase not configured (LINEAGE_PASSPHRASE)",
+            "route": "wallet.transfer_funds",
+            "content": {},
+        }
+    resp = wallet_send_transaction(destination, amount, cfg.lineage_passphrase)
+    return resp.model_dump()
+
+
 def _cors_wrapper(inner_app):
     allow_origins_env = os.environ.get("MCP_ALLOW_ORIGINS", "*")
-    allow_origins = [o.strip() for o in allow_origins_env.split(",")] if allow_origins_env else ["*"]
+    allow_origins = (
+        [o.strip() for o in allow_origins_env.split(",")] if allow_origins_env else ["*"]
+    )
 
     async def app(scope, receive, send):  # ASGI 3.0
         if scope.get("type") != "http":
@@ -134,7 +161,9 @@ def _cors_wrapper(inner_app):
                     if name.lower() == b"origin":
                         origin = value.decode()
                         break
-                allow_origin = "*" if "*" in allow_origins else (origin if origin in allow_origins else None)
+                allow_origin = (
+                    "*" if "*" in allow_origins else (origin if origin in allow_origins else None)
+                )
                 if allow_origin:
                     headers.append((b"access-control-allow-origin", allow_origin.encode()))
                 headers.append((b"access-control-allow-headers", b"*"))
@@ -150,7 +179,7 @@ def _cors_wrapper(inner_app):
                 "<html><head><title>Lineage MCP Server</title></head><body>"
                 "<h1>Lineage MCP Server</h1>"
                 "<p>To use this service, connect with an MCP-compatible client (e.g., MCP Inspector).</p>"
-                "<p>Docs: <a href=\"https://modelcontextprotocol.io/\">Model Context Protocol</a></p>"
+                '<p>Docs: <a href="https://modelcontextprotocol.io/">Model Context Protocol</a></p>'
                 "</body></html>"
             ).encode("utf-8")
             start = {
@@ -220,7 +249,9 @@ def prompt_tx_explain(transaction_json: str) -> list[dict]:
 
 @mcp.prompt(name="prompt.tx.summarize_list", title="Summarize Transactions")
 def prompt_tx_summarize_list(transactions_json: str) -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.tx.summarize_list", transactions_json=transactions_json)
+    text = prompt_catalog.render_prompt(
+        "prompt.tx.summarize_list", transactions_json=transactions_json
+    )
     return [{"role": "user", "content": text}]
 
 
@@ -232,7 +263,9 @@ def prompt_wallet_balance_summary(balance_json: str) -> list[dict]:
 
 @mcp.prompt(name="prompt.error.help", title="Error Help")
 def prompt_error_help(error_message: str, context: str) -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.error.help", error_message=error_message, context=context)
+    text = prompt_catalog.render_prompt(
+        "prompt.error.help", error_message=error_message, context=context
+    )
     return [{"role": "user", "content": text}]
 
 
@@ -240,4 +273,3 @@ def prompt_error_help(error_message: str, context: str) -> list[dict]:
 def prompt_security_seed_guidance() -> list[dict]:
     text = prompt_catalog.render_prompt("prompt.security.seed_guidance")
     return [{"role": "user", "content": text}]
-
