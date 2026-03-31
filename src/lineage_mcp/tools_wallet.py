@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
+from decimal import Decimal
 
 from lineage.wallet import Wallet
 from lineage.config import get_config as sdk_get_config, validate_env_config
-from typing import Any
-from .schemas import BalanceResponse
+from .schemas import BalanceResponse, TransferFundsResponse
 
 
 def _to_text(value: Any) -> str | None:
@@ -16,11 +16,27 @@ def _to_text(value: Any) -> str | None:
     return str(value)
 
 
-def _as_dict(obj: object) -> dict:  # unused; retained only if needed later
-    if isinstance(obj, dict):
-        return obj
-    return {"value": repr(obj)}
+def _get_ready_wallet() -> Wallet:
+    """Helper to initialize a Wallet with validated SDK configuration."""
+    wallet = Wallet()
+    _ensure_sdk_env()
+    
+    try:
+        cfg_raw = sdk_get_config()
+        cfg = _unwrap_cfg(cfg_raw)
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch SDK config: {e}")
 
+    err = validate_env_config(cfg)
+    if hasattr(err, "is_err"):
+        if getattr(err, "is_err"):
+            msg = getattr(err, "_error_message", None) or str(getattr(err, "_error", "invalid config"))
+            raise RuntimeError(f"Lineage config invalid: {msg}")
+    elif err:
+        raise RuntimeError(f"Lineage config invalid: {err}")
+    
+    wallet.config = cfg
+    return wallet
 
 
 def _ensure_sdk_env() -> None:
@@ -93,73 +109,106 @@ def generate_keypair(seed_phrase: Optional[str] = None) -> dict:
 
 
 def get_balance() -> BalanceResponse:
-    wallet = Wallet()
-    # Ensure network config is present for internal init_network path
-    _ensure_sdk_env()
-    cfg_raw = sdk_get_config()
-    cfg = _unwrap_cfg(cfg_raw)
-    err = validate_env_config(cfg)
-    # Treat only error IResult as failure; ignore ok IResult objects
-    if hasattr(err, "is_err"):
-        if getattr(err, "is_err"):
-            msg = getattr(err, "_error_message", None) or str(getattr(err, "_error", "invalid config"))
-            raise RuntimeError(f"Lineage config invalid: {msg}")
-    elif err:
-        raise RuntimeError(f"Lineage config invalid: {err}")
-    wallet.config = cfg
-    # SDK get_balance returns balance for the current wallet address
-    result = wallet.get_balance()
-    if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
-        value: Any = result.get_ok()
-    else:
-        value = getattr(result, "_value", result)
-    # Coerce scalars into a dict payload compatible with BalanceResponse
-    d = value if isinstance(value, dict) else {"balance": value}
-    return BalanceResponse(
-        id=d.get("id", ""),
-        status=d.get("status", ""),
-        reason=d.get("reason", ""),
-        route=d.get("route", ""),
-        content=d.get("content", d),
-    )
+    try:
+        wallet = _get_ready_wallet()
+        result = wallet.get_balance()
+        
+        if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
+            value: Any = result.get_ok()
+        else:
+            value = getattr(result, "_value", result)
+        
+        # Coerce scalars into a dict payload compatible with BalanceResponse
+        d = value if isinstance(value, dict) else {"balance": value}
+        return BalanceResponse(
+            id=d.get("id", ""),
+            status=d.get("status", "Success"),
+            reason=d.get("reason", ""),
+            route=d.get("route", "wallet.get_balance"),
+            content=d.get("content", d),
+        )
+    except Exception as e:
+        return BalanceResponse(
+            id="", status="Error", reason=str(e), route="wallet.get_balance", content={}
+        )
 
 
 def fetch_balance(addresses: list[str]) -> BalanceResponse:
-    wallet = Wallet()
-    # Ensure SDK config is set before network operations
-    _ensure_sdk_env()
     try:
-        cfg_raw = sdk_get_config()
-        cfg = _unwrap_cfg(cfg_raw)
+        wallet = _get_ready_wallet()
+        result = wallet.fetch_balance(addresses)
+        
+        if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
+            value: Any = result.get_ok()
+        else:
+            value = getattr(result, "_value", result)
+            
+        # Coerce scalars/lists into a dict payload
+        d = value if isinstance(value, dict) else {"balances": value}
+        return BalanceResponse(
+            id=d.get("id", ""),
+            status=d.get("status", "Success"),
+            reason=d.get("reason", ""),
+            route=d.get("route", "wallet.fetch_balance"),
+            content=d.get("content", d),
+        )
     except Exception as e:
-        return BalanceResponse(id="", status="Error", reason=f"get_config failed: {e}", route="wallet.fetch_balance", content={})
-    try:
-        err = validate_env_config(cfg)
-        if hasattr(err, "is_err"):
-            if getattr(err, "is_err"):
-                msg = getattr(err, "_error_message", None) or str(getattr(err, "_error", "invalid config"))
-                return BalanceResponse(id="", status="Error", reason=msg, route="wallet.fetch_balance", content={})
-        elif err:
-            return BalanceResponse(id="", status="Error", reason=str(err), route="wallet.fetch_balance", content={})
-    except Exception as e:
-        return BalanceResponse(id="", status="Error", reason=f"validate_env_config failed: {e}", route="wallet.fetch_balance", content={})
-    wallet.config = cfg
-    # Initialize routes explicitly to avoid None internal config usage
-    # SDK >=0.2.9: no explicit init_network required
-    # Call SDK
-    result = wallet.fetch_balance(addresses)
-    if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
-        value: Any = result.get_ok()
-    else:
-        value = getattr(result, "_value", result)
-    # Coerce scalars/lists into a dict payload
-    d = value if isinstance(value, dict) else {"balances": value}
-    return BalanceResponse(
-        id=d.get("id", ""),
-        status=d.get("status", ""),
-        reason=d.get("reason", ""),
-        route=d.get("route", ""),
-        content=d.get("content", d),
-    )
+        return BalanceResponse(
+            id="", status="Error", reason=str(e), route="wallet.fetch_balance", content={}
+        )
 
 
+
+def send_transaction(destination: str, amount: Decimal, passphrase: str) -> TransferFundsResponse:
+    try:
+        wallet = _get_ready_wallet()
+        
+        # Pre-flight Check: Basic balance validation using Decimal for precision
+        balance_res = wallet.get_balance()
+        if hasattr(balance_res, "get_ok") and callable(getattr(balance_res, "get_ok")):
+            bal_val = balance_res.get_ok()
+        else:
+            bal_val = getattr(balance_res, "_value", balance_res)
+        
+        current_balance = Decimal("0.0")
+        if isinstance(bal_val, dict):
+            # Convert SDK return value to Decimal safely
+            raw_bal = bal_val.get("balance", "0.0")
+            current_balance = Decimal(str(raw_bal)) if raw_bal is not None else Decimal("0.0")
+        elif isinstance(bal_val, (int, float, str, Decimal)):
+            current_balance = Decimal(str(bal_val))
+            
+        if current_balance < amount:
+            return TransferFundsResponse(
+                id="",
+                status="Error",
+                reason=f"Insufficient funds: attempted {amount}, but balance is {current_balance}",
+                route="wallet.transfer_funds",
+                content={"balance": str(current_balance)}
+            )
+
+        # Call SDK to broadcast transaction
+        # Note: We convert to float only at the last moment if the SDK requires it
+        # but here we pass the Decimal directly.
+        result = wallet.send_transaction(destination, float(amount), passphrase=passphrase)
+        
+        if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
+            value: Any = result.get_ok()
+        else:
+            value = getattr(result, "_value", result)
+            
+        # Coerce scalars into a dict payload
+        d = value if isinstance(value, dict) else {"result": value}
+        
+        # Map the SDK response to our schema with sensible defaults
+        return TransferFundsResponse(
+            id=str(d.get("id", d.get("tx_hash", "none"))),
+            status=d.get("status", "Success") if "Error" not in str(d.get("status", "")) else "Error",
+            reason=d.get("reason", ""),
+            route=d.get("route", "wallet.transfer_funds"),
+            content=d.get("content", d),
+        )
+    except Exception as e:
+        return TransferFundsResponse(
+            id="", status="Error", reason=f"Transaction failed: {e}", route="wallet.transfer_funds", content={}
+        )

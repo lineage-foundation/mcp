@@ -90,3 +90,12 @@ class TransactionsResponse(BaseModel):
     content: Any
 
 
+class TransferFundsResponse(BaseModel):
+    ok: bool = True
+    id: str
+    status: str
+    reason: str
+    route: str
+    content: Any
+
+
