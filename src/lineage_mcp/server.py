@@ -7,8 +7,8 @@ from decimal import Decimal
 from mcp.server.fastmcp import FastMCP
 import os
 
-from .clients import create_blockchain_client
-from .config import get_config
+from lineage_mcp.core.clients import create_blockchain_client
+from lineage_mcp.core.config import get_config
 from lineage_mcp.tools.blockchain import (
     get_latest_block,
     get_total_supply,
