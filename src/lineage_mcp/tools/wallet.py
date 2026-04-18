@@ -212,3 +212,40 @@ def send_transaction(destination: str, amount: Decimal, passphrase: str) -> Tran
         return TransferFundsResponse(
             id="", status="Error", reason=f"Transaction failed: {e}", route="wallet.transfer_funds", content={}
         )
+
+
+from mcp.server.fastmcp import FastMCP
+from lineage_mcp.core.context import ServerContext
+from lineage_mcp.core.errors import mcp_error_boundary
+
+def register(mcp: FastMCP, ctx: ServerContext):
+    @mcp.tool(name="get-balance")
+    @mcp_error_boundary
+    def wallet_get_balance() -> dict:
+        return get_balance().model_dump()
+
+    @mcp.tool(name="fetch-balance")
+    @mcp_error_boundary
+    def wallet_fetch_balance_tool(addresses: list[str]) -> dict:
+        return fetch_balance(addresses).model_dump()
+
+    @mcp.tool(name="generate-seed-phrase")
+    @mcp_error_boundary
+    def wallet_generate_seed_phrase() -> dict:
+        return generate_seed_phrase()
+
+    @mcp.tool(name="generate-keypair")
+    @mcp_error_boundary
+    def wallet_generate_keypair(seedPhrase: str = None) -> dict:
+        return generate_keypair(seed_phrase=seedPhrase)
+
+    @mcp.tool(name="transfer-funds")
+    @mcp_error_boundary
+    def wallet_transfer_funds_tool(destination: str, amount: str) -> dict:
+        if not ctx.config.lineage_passphrase:
+            return {
+                "ok": False, "id": "", "status": "Error",
+                "reason": "Server passphrase not configured (LINEAGE_PASSPHRASE)",
+                "route": "wallet.transfer_funds", "content": {}
+            }
+        return send_transaction(destination, amount, ctx.config.lineage_passphrase).model_dump()

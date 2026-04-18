@@ -220,3 +220,44 @@ def fetch_transactions(client: BlockchainClient, tx_hashes: list[str]) -> Transa
         content=d.get("content", d),
     )
 
+
+
+from mcp.server.fastmcp import FastMCP
+from lineage_mcp.core.context import ServerContext
+from lineage_mcp.core.errors import mcp_error_boundary
+
+def register(mcp: FastMCP, ctx: ServerContext):
+    @mcp.tool(name="get-latest-block")
+    @mcp_error_boundary
+    def blockchain_get_latest_block() -> dict:
+        return get_latest_block(ctx.blockchain_client).model_dump()
+
+    @mcp.tool(name="get-total-supply")
+    @mcp_error_boundary
+    def blockchain_get_total_supply() -> dict:
+        return get_total_supply(ctx.blockchain_client).model_dump()
+
+    @mcp.tool(name="get-issued-supply")
+    @mcp_error_boundary
+    def blockchain_get_issued_supply() -> dict:
+        return get_issued_supply(ctx.blockchain_client).model_dump()
+
+    @mcp.tool(name="get-block-by-number")
+    @mcp_error_boundary
+    def blockchain_get_block_by_number(height: int) -> dict:
+        return get_block_by_number(ctx.blockchain_client, height).model_dump()
+
+    @mcp.tool(name="get-entry-by-hash")
+    @mcp_error_boundary
+    def blockchain_get_entry_by_hash(hash: str) -> dict:
+        return get_entry_by_hash(ctx.blockchain_client, hash).model_dump()
+
+    @mcp.tool(name="get-transaction-by-hash")
+    @mcp_error_boundary
+    def blockchain_get_transaction_by_hash(tx_hash: str) -> dict:
+        return get_transaction_by_hash(ctx.blockchain_client, tx_hash).model_dump()
+
+    @mcp.tool(name="fetch-transactions")
+    @mcp_error_boundary
+    def blockchain_fetch_transactions(tx_hashes: list[str]) -> dict:
+        return fetch_transactions(ctx.blockchain_client, tx_hashes).model_dump()

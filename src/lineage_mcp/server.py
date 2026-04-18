@@ -7,139 +7,32 @@ from decimal import Decimal
 from mcp.server.fastmcp import FastMCP
 import os
 
+from lineage.wallet import Wallet
+
 from lineage_mcp.core.clients import create_blockchain_client
 from lineage_mcp.core.config import get_config
-from lineage_mcp.tools.blockchain import (
-    get_latest_block,
-    get_total_supply,
-    get_issued_supply,
-    get_block_by_number,
-    get_entry_by_hash,
-    get_transaction_by_hash,
-    fetch_transactions,
-)
-from lineage_mcp.tools.wallet import (
-    get_balance as wallet_balance,
-    fetch_balance as wallet_fetch_balance,
-    send_transaction as wallet_send_transaction,
-    generate_seed_phrase as gen_seed_impl,
-    generate_keypair as gen_keypair_impl,
-)
-from lineage_mcp.tools.health import health as health_impl, version as version_impl
+from lineage_mcp.core.context import ServerContext
+
+from lineage_mcp.tools import blockchain, wallet, health
 from . import prompts as prompt_catalog
 
-
-# Create the MCP server using the SDK's standard pattern
 mcp = FastMCP("Lineage MCP Server", stateless_http=True)
 
+# 1. Initialize Context
+cfg = get_config()
+wallet_client = Wallet()
+wallet_client.config = cfg
 
-@lru_cache()
-def get_shared_blockchain_client():
-    cfg = get_config()
-    return create_blockchain_client(cfg)
+ctx = ServerContext(
+    config=cfg,
+    blockchain_client=create_blockchain_client(cfg),
+    wallet=wallet_client
+)
 
-
-@mcp.tool()
-def health() -> dict:
-    return health_impl()
-
-
-@mcp.tool()
-def version() -> dict:
-    return version_impl()
-
-
-@mcp.tool(name="get-latest-block")
-def blockchain_get_latest_block() -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_latest_block(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-balance")
-def wallet_get_balance() -> dict:
-    print("[tool] wallet.get_balance invoked", flush=True)
-    resp = wallet_balance()
-    return resp.model_dump()
-
-
-@mcp.tool(name="fetch-balance")
-def wallet_fetch_balance_tool(addresses: list[str]) -> dict:
-    print(f"[tool] wallet.fetch_balance invoked with addresses={addresses}", flush=True)
-    resp = wallet_fetch_balance(addresses)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-total-supply")
-def blockchain_get_total_supply() -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_total_supply(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-issued-supply")
-def blockchain_get_issued_supply() -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_issued_supply(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-block-by-number")
-def blockchain_get_block_by_number(height: int) -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_block_by_number(client, height)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-entry-by-hash")
-def blockchain_get_entry_by_hash(hash: str) -> dict:  # noqa: A002
-    client = get_shared_blockchain_client()
-    resp = get_entry_by_hash(client, hash)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-transaction-by-hash")
-def blockchain_get_transaction_by_hash(tx_hash: str) -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_transaction_by_hash(client, tx_hash)
-    return resp.model_dump()
-
-
-@mcp.tool(name="fetch-transactions")
-def blockchain_fetch_transactions(tx_hashes: list[str]) -> dict:
-    client = get_shared_blockchain_client()
-    resp = fetch_transactions(client, tx_hashes)
-    return resp.model_dump()
-
-
-@mcp.tool(name="generate-seed-phrase")
-def wallet_generate_seed_phrase() -> dict:
-    return gen_seed_impl()
-
-
-@mcp.tool(name="generate-keypair")
-def wallet_generate_keypair(seedPhrase: Optional[str] = None) -> dict:  # noqa: N803 (external name)
-    return gen_keypair_impl(seed_phrase=seedPhrase)
-
-
-@mcp.tool(name="transfer-funds")
-def wallet_transfer_funds_tool(destination: str, amount: Decimal) -> dict:
-    print(
-        f"[tool] wallet.transfer_funds invoked with destination={destination}, amount={amount}",
-        flush=True,
-    )
-    cfg = get_config()
-    if not cfg.lineage_passphrase:
-        return {
-            "ok": False,
-            "id": "",
-            "status": "Error",
-            "reason": "Server passphrase not configured (LINEAGE_PASSPHRASE)",
-            "route": "wallet.transfer_funds",
-            "content": {},
-        }
-    resp = wallet_send_transaction(destination, amount, cfg.lineage_passphrase)
-    return resp.model_dump()
+# 2. Register tools from plugins
+blockchain.register(mcp, ctx)
+wallet.register(mcp, ctx)
+health.register(mcp, ctx)
 
 
 def _cors_wrapper(inner_app):
