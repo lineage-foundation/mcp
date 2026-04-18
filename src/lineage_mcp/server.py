@@ -10,7 +10,7 @@ from lineage_mcp.core.config import get_config
 from lineage_mcp.core.context import ServerContext
 
 from lineage_mcp.tools import blockchain, wallet, health
-from . import prompts as prompt_catalog
+from lineage_mcp import fast_mcp_prompts as prompts
 
 mcp = FastMCP("Lineage MCP Server", stateless_http=True)
 
@@ -27,6 +27,7 @@ ctx = ServerContext(
 blockchain.register(mcp, ctx)
 wallet.register(mcp, ctx)
 health.register(mcp, ctx)
+prompts.register(mcp, ctx)
 
 
 def _cors_wrapper(inner_app):
@@ -115,48 +116,3 @@ def _cors_wrapper(inner_app):
 app = _cors_wrapper(mcp.streamable_http_app())
 
 
-# Prompts registered via FastMCP.prompt() decorator (SDK standard)
-@mcp.prompt(name="prompt.block.explain_header", title="Explain Block Header")
-def prompt_block_explain_header(header_json: str) -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.block.explain_header", header_json=header_json)
-    return [{"role": "user", "content": text}]
-
-
-@mcp.prompt(name="prompt.block.summarize", title="Summarize Block")
-def prompt_block_summarize(block_json: str) -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.block.summarize", block_json=block_json)
-    return [{"role": "user", "content": text}]
-
-
-@mcp.prompt(name="prompt.tx.explain", title="Explain Transaction")
-def prompt_tx_explain(transaction_json: str) -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.tx.explain", transaction_json=transaction_json)
-    return [{"role": "user", "content": text}]
-
-
-@mcp.prompt(name="prompt.tx.summarize_list", title="Summarize Transactions")
-def prompt_tx_summarize_list(transactions_json: str) -> list[dict]:
-    text = prompt_catalog.render_prompt(
-        "prompt.tx.summarize_list", transactions_json=transactions_json
-    )
-    return [{"role": "user", "content": text}]
-
-
-@mcp.prompt(name="prompt.wallet.balance_summary", title="Wallet Balance Summary")
-def prompt_wallet_balance_summary(balance_json: str) -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.wallet.balance_summary", balance_json=balance_json)
-    return [{"role": "user", "content": text}]
-
-
-@mcp.prompt(name="prompt.error.help", title="Error Help")
-def prompt_error_help(error_message: str, context: str) -> list[dict]:
-    text = prompt_catalog.render_prompt(
-        "prompt.error.help", error_message=error_message, context=context
-    )
-    return [{"role": "user", "content": text}]
-
-
-@mcp.prompt(name="prompt.security.seed_guidance", title="Seed Phrase Guidance")
-def prompt_security_seed_guidance() -> list[dict]:
-    text = prompt_catalog.render_prompt("prompt.security.seed_guidance")
-    return [{"role": "user", "content": text}]

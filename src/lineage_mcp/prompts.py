@@ -96,5 +96,3 @@ def get_prompt(name: str) -> PromptTemplate:
 
 def render_prompt(name: str, **kwargs: Any) -> str:
     return get_prompt(name).render(**kwargs)
-
-
