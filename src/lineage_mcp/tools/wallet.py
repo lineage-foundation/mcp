@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from mcp.server.fastmcp import FastMCP
+from lineage_mcp.core.context import ServerContext
+from lineage_mcp.core.errors import mcp_error_boundary
+
 from typing import Optional, Any
 from decimal import Decimal
 
@@ -213,10 +217,6 @@ def send_transaction(destination: str, amount: Decimal, passphrase: str) -> Tran
             id="", status="Error", reason=f"Transaction failed: {e}", route="wallet.transfer_funds", content={}
         )
 
-
-from mcp.server.fastmcp import FastMCP
-from lineage_mcp.core.context import ServerContext
-from lineage_mcp.core.errors import mcp_error_boundary
 
 def register(mcp: FastMCP, ctx: ServerContext):
     @mcp.tool(name="get-balance")

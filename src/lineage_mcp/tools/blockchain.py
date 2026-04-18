@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from mcp.server.fastmcp import FastMCP
+from lineage_mcp.core.context import ServerContext
+from lineage_mcp.core.errors import mcp_error_boundary
+
 from lineage.blockchain import BlockchainClient
 from typing import Any
 
@@ -221,10 +225,6 @@ def fetch_transactions(client: BlockchainClient, tx_hashes: list[str]) -> Transa
     )
 
 
-
-from mcp.server.fastmcp import FastMCP
-from lineage_mcp.core.context import ServerContext
-from lineage_mcp.core.errors import mcp_error_boundary
 
 def register(mcp: FastMCP, ctx: ServerContext):
     @mcp.tool(name="get-latest-block")
