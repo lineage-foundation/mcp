@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from .__about__ import __version__
+from lineage_mcp.__about__ import __version__
 
 
 def health() -> dict:

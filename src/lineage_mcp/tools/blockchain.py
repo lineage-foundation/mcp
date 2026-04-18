@@ -3,7 +3,7 @@ from __future__ import annotations
 from lineage.blockchain import BlockchainClient
 from typing import Any
 
-from .schemas import (
+from lineage_mcp.schemas import (
     BalanceRequest,
     BalanceResponse,
     LatestBlockResponse,

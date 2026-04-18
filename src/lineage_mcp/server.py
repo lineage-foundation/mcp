@@ -9,7 +9,7 @@ import os
 
 from .clients import create_blockchain_client
 from .config import get_config
-from .tools_blockchain import (
+from lineage_mcp.tools.blockchain import (
     get_latest_block,
     get_total_supply,
     get_issued_supply,
@@ -18,14 +18,14 @@ from .tools_blockchain import (
     get_transaction_by_hash,
     fetch_transactions,
 )
-from .tools_wallet import (
+from lineage_mcp.tools.wallet import (
     get_balance as wallet_balance,
     fetch_balance as wallet_fetch_balance,
     send_transaction as wallet_send_transaction,
     generate_seed_phrase as gen_seed_impl,
     generate_keypair as gen_keypair_impl,
 )
-from .tools_health import health as health_impl, version as version_impl
+from lineage_mcp.tools.health import health as health_impl, version as version_impl
 from . import prompts as prompt_catalog
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from lineage_mcp.validators import ensure_non_empty, ensure_hex
+from lineage_mcp.utils import ensure_non_empty, ensure_hex
 from lineage_mcp.schemas import BalanceRequest
 
 

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from lineage.wallet import Wallet
 from lineage.config import get_config as sdk_get_config, validate_env_config
-from .schemas import BalanceResponse, TransferFundsResponse
+from lineage_mcp.schemas import BalanceResponse, TransferFundsResponse
 
 
 def _to_text(value: Any) -> str | None:
