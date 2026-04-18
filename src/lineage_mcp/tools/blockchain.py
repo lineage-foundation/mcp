@@ -6,7 +6,7 @@ from lineage_mcp.core.errors import mcp_error_boundary
 
 from lineage.blockchain import BlockchainClient
 from typing import Any
-from lineage_mcp.utils import unwrap_sdk_result
+from lineage_mcp.core.parsers import unwrap_sdk_result
 
 from lineage_mcp.schemas import (
     BalanceRequest,

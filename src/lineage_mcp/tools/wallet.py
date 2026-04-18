@@ -5,7 +5,7 @@ from lineage_mcp.core.context import ServerContext
 from lineage_mcp.core.errors import mcp_error_boundary
 
 from typing import Optional, Any
-from lineage_mcp.utils import unwrap_sdk_result
+from lineage_mcp.core.parsers import unwrap_sdk_result
 from decimal import Decimal
 
 from lineage.wallet import Wallet
