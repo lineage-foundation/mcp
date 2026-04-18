@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-from functools import lru_cache
-from decimal import Decimal
-
 from mcp.server.fastmcp import FastMCP
 import os
 
@@ -24,9 +20,7 @@ wallet_client = Wallet()
 wallet_client.config = cfg
 
 ctx = ServerContext(
-    config=cfg,
-    blockchain_client=create_blockchain_client(cfg),
-    wallet=wallet_client
+    config=cfg, blockchain_client=create_blockchain_client(cfg), wallet=wallet_client
 )
 
 # 2. Register tools from plugins
