@@ -5,6 +5,7 @@ from lineage_mcp.core.context import ServerContext
 from lineage_mcp.core.errors import mcp_error_boundary
 
 from typing import Optional, Any
+from lineage_mcp.utils import unwrap_sdk_result
 from decimal import Decimal
 
 from lineage.wallet import Wallet
@@ -27,7 +28,7 @@ def _get_ready_wallet() -> Wallet:
     
     try:
         cfg_raw = sdk_get_config()
-        cfg = _unwrap_cfg(cfg_raw)
+        cfg = unwrap_sdk_result(cfg_raw)
     except Exception as e:
         raise RuntimeError(f"Failed to fetch SDK config: {e}")
 
@@ -46,41 +47,6 @@ def _get_ready_wallet() -> Wallet:
 def _ensure_sdk_env() -> None:
     # With SDK >=0.2.9, config reading is consistent; no remapping needed.
     return
-
-
-def _unwrap(obj: Any) -> Any:
-    # Match blockchain tools' IResult unwrapping strategy
-    seen = set()
-    for _ in range(3):
-        if id(obj) in seen:
-            break
-        seen.add(id(obj))
-        for attr in ("result", "data", "value", "_value"):
-            val = getattr(obj, attr, None)
-            if val is not None:
-                obj = val
-                break
-        else:
-            if isinstance(obj, dict):
-                for key in ("result", "data", "value"):
-                    if key in obj:
-                        obj = obj[key]
-                        break
-                else:
-                    break
-            else:
-                break
-    return obj
-
-
-def _unwrap_cfg(obj: Any) -> Any:
-    # Unwrap SDK IResult for config values
-    try:
-        if hasattr(obj, "get_ok") and callable(getattr(obj, "get_ok")):
-            return obj.get_ok()
-    except Exception:
-        pass
-    return getattr(obj, "_value", obj)
 
 
 def generate_seed_phrase(entropy_bits: Optional[int] = None) -> dict:
@@ -117,10 +83,7 @@ def get_balance() -> BalanceResponse:
         wallet = _get_ready_wallet()
         result = wallet.get_balance()
         
-        if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
-            value: Any = result.get_ok()
-        else:
-            value = getattr(result, "_value", result)
+        value = unwrap_sdk_result(result)
         
         # Coerce scalars into a dict payload compatible with BalanceResponse
         d = value if isinstance(value, dict) else {"balance": value}
@@ -142,10 +105,7 @@ def fetch_balance(addresses: list[str]) -> BalanceResponse:
         wallet = _get_ready_wallet()
         result = wallet.fetch_balance(addresses)
         
-        if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
-            value: Any = result.get_ok()
-        else:
-            value = getattr(result, "_value", result)
+        value = unwrap_sdk_result(result)
             
         # Coerce scalars/lists into a dict payload
         d = value if isinstance(value, dict) else {"balances": value}
@@ -169,10 +129,7 @@ def send_transaction(destination: str, amount: Decimal, passphrase: str) -> Tran
         
         # Pre-flight Check: Basic balance validation using Decimal for precision
         balance_res = wallet.get_balance()
-        if hasattr(balance_res, "get_ok") and callable(getattr(balance_res, "get_ok")):
-            bal_val = balance_res.get_ok()
-        else:
-            bal_val = getattr(balance_res, "_value", balance_res)
+        bal_val = unwrap_sdk_result(balance_res)
         
         current_balance = Decimal("0.0")
         if isinstance(bal_val, dict):
@@ -196,10 +153,7 @@ def send_transaction(destination: str, amount: Decimal, passphrase: str) -> Tran
         # but here we pass the Decimal directly.
         result = wallet.send_transaction(destination, float(amount), passphrase=passphrase)
         
-        if hasattr(result, "get_ok") and callable(getattr(result, "get_ok")):
-            value: Any = result.get_ok()
-        else:
-            value = getattr(result, "_value", result)
+        value = unwrap_sdk_result(result)
             
         # Coerce scalars into a dict payload
         d = value if isinstance(value, dict) else {"result": value}
@@ -241,7 +195,7 @@ def register(mcp: FastMCP, ctx: ServerContext):
 
     @mcp.tool(name="transfer-funds")
     @mcp_error_boundary
-    def wallet_transfer_funds_tool(destination: str, amount: str) -> dict:
+    def wallet_transfer_funds_tool(destination: str, amount: Decimal) -> dict:
         if not ctx.config.lineage_passphrase:
             return {
                 "ok": False, "id": "", "status": "Error",

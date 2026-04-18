@@ -6,6 +6,7 @@ from lineage_mcp.core.errors import mcp_error_boundary
 
 from lineage.blockchain import BlockchainClient
 from typing import Any
+from lineage_mcp.utils import unwrap_sdk_result
 
 from lineage_mcp.schemas import (
     BalanceRequest,
@@ -41,33 +42,6 @@ def _as_dict(obj: object) -> dict:
     return data
 
 
-def _unwrap(obj: Any) -> Any:
-    # Iteratively unwrap common result wrappers (e.g., IResult-like: result/data)
-    seen = set()
-    for _ in range(3):
-        if id(obj) in seen:
-            break
-        seen.add(id(obj))
-        # attr-based unwrap
-        for attr in ("result", "data", "value", "_value"):
-            val = getattr(obj, attr, None)
-            if val is not None:
-                obj = val
-                break
-        else:
-            # dict-based unwrap
-            if isinstance(obj, dict):
-                for key in ("result", "data", "value"):
-                    if key in obj:
-                        obj = obj[key]
-                        break
-                else:
-                    break
-            else:
-                break
-    return obj
-
-
 def _find_value(obj: Any, keys: list[str]) -> Any:
     # Recursively search dicts/lists/objects for the first matching key
     if isinstance(obj, dict):
@@ -92,7 +66,7 @@ def _find_value(obj: Any, keys: list[str]) -> Any:
 
 
 def get_latest_block(client: BlockchainClient) -> LatestBlockResponse:
-    v = _unwrap(client.get_latest_block())
+    v = unwrap_sdk_result(client.get_latest_block())
     d = v if isinstance(v, dict) else _as_dict(v)
 
     # Map fields exactly as provided by the SDK result
@@ -122,7 +96,7 @@ def get_latest_block(client: BlockchainClient) -> LatestBlockResponse:
 
 def get_balance(client: BlockchainClient, req: BalanceRequest) -> BalanceResponse:
     # Use the SDK's balance-by-address method on the Blockchain client
-    v = _unwrap(client.get_balance_for_address(req.address))
+    v = unwrap_sdk_result(client.get_balance_for_address(req.address))
     d = v if isinstance(v, dict) else _as_dict(v)
     return BalanceResponse(
         id=d.get("id", ""),
@@ -134,7 +108,7 @@ def get_balance(client: BlockchainClient, req: BalanceRequest) -> BalanceRespons
 
 
 def get_total_supply(client: BlockchainClient) -> SupplyResponse:
-    v = _unwrap(client.get_total_supply())
+    v = unwrap_sdk_result(client.get_total_supply())
     if isinstance(v, dict):
         return SupplyResponse(
             id=v.get("id", ""),
@@ -148,7 +122,7 @@ def get_total_supply(client: BlockchainClient) -> SupplyResponse:
 
 
 def get_issued_supply(client: BlockchainClient) -> SupplyResponse:
-    v = _unwrap(client.get_issued_supply())
+    v = unwrap_sdk_result(client.get_issued_supply())
     if isinstance(v, dict):
         return SupplyResponse(
             id=v.get("id", ""),
@@ -162,7 +136,7 @@ def get_issued_supply(client: BlockchainClient) -> SupplyResponse:
 
 
 def get_block_by_number(client: BlockchainClient, block_num: int) -> LatestBlockResponse:
-    v = _unwrap(client.get_block_by_num(block_num))
+    v = unwrap_sdk_result(client.get_block_by_num(block_num))
     d = v if isinstance(v, dict) else _as_dict(v)
     header = _find_value(d, ["header"]) or {}
     header_model = BlockHeader(
@@ -190,7 +164,7 @@ def get_block_by_number(client: BlockchainClient, block_num: int) -> LatestBlock
 
 
 def get_entry_by_hash(client: BlockchainClient, hash: str) -> EntryResponse:  # noqa: A002 (shadow builtins)
-    v = _unwrap(client.get_blockchain_entry(hash))
+    v = unwrap_sdk_result(client.get_blockchain_entry(hash))
     d = v if isinstance(v, dict) else _as_dict(v)
     return EntryResponse(
         id=d.get("id", ""),
@@ -202,7 +176,7 @@ def get_entry_by_hash(client: BlockchainClient, hash: str) -> EntryResponse:  # 
 
 
 def get_transaction_by_hash(client: BlockchainClient, tx_hash: str) -> TransactionResponse:
-    v = _unwrap(client.get_transaction_by_hash(tx_hash))
+    v = unwrap_sdk_result(client.get_transaction_by_hash(tx_hash))
     d = v if isinstance(v, dict) else _as_dict(v)
     return TransactionResponse(
         id=d.get("id", ""),
@@ -214,7 +188,7 @@ def get_transaction_by_hash(client: BlockchainClient, tx_hash: str) -> Transacti
 
 
 def fetch_transactions(client: BlockchainClient, tx_hashes: list[str]) -> TransactionsResponse:
-    v = _unwrap(client.fetch_transactions(tx_hashes))
+    v = unwrap_sdk_result(client.fetch_transactions(tx_hashes))
     d = v if isinstance(v, dict) else _as_dict(v)
     return TransactionsResponse(
         id=d.get("id", ""),
