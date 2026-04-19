@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from lineage_mcp.schemas import BalanceRequest
-from lineage_mcp.tools_blockchain import get_latest_block, get_balance
+from lineage_mcp.tools.blockchain import get_latest_block, get_balance
 
 
 class FakeClient:
