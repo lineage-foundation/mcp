@@ -7,11 +7,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-  "lineage @ git+https://github.com/lineage-foundation/sdk-python.git",
+  "lineage-sdk>=1.0.1",
   "python-dotenv>=1.0.1",
   "uvicorn>=0.30.0",
-  "mcp",
-  "pydantic>=2.10.0",
+  "mcp>=2.1,<3",
+  # >=2.12 ensures pydantic-core has prebuilt cp314 wheels (2.11 pins core 2.33, which
+  # has no Python 3.14 wheel and fails to compile). Keeps fresh installs working on latest Python.
+  "pydantic>=2.12",
 ]
 
 [project.urls]

@@ -17,6 +17,7 @@ class AppConfig:
     storage_host: Optional[str]
     mempool_host: Optional[str]
     valence_host: Optional[str]
+    api_key: Optional[str]
     log_level: str
 
 
@@ -26,7 +27,6 @@ def get_config() -> AppConfig:
         storage_host=os.environ.get("LINEAGE_STORAGE_HOST"),
         mempool_host=os.environ.get("LINEAGE_MEMPOOL_HOST"),
         valence_host=os.environ.get("LINEAGE_VALENCE_HOST"),
+        api_key=os.environ.get("LINEAGE_API_KEY"),
         log_level=os.environ.get("LOG_LEVEL", "INFO"),
     )
-
-

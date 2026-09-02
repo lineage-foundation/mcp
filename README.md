@@ -7,7 +7,7 @@ MCP server for the Lineage API using Python, uv, and pyproject.
 - [MCP Overview](https://modelcontextprotocol.io/)
 - [Transports (Streamable HTTP)](https://modelcontextprotocol.io/docs/concepts/transports)
 - [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-- [Lineage SDK (PyPI)](https://pypi.org/project/lineage/)
+- [Lineage SDK (PyPI)](https://pypi.org/project/lineage-sdk/)
 
 ## Quickstart (dev)
 
@@ -34,7 +34,7 @@ MCP server for the Lineage API using Python, uv, and pyproject.
     - Transport: Streamable HTTP
     - URL: `http://localhost:8000/mcp`
     - If using dev auth: set `MCP_DEV_AUTH_TOKEN` on the server and provide `Authorization: Bearer <token>` in Inspector requests.
-  - Try tools: `wallet.generate_seed_phrase`, `wallet.generate_keypair`, `wallet.get_balance`, `blockchain.get_latest_block`, `health`, `version`.
+  - Try tools: `generate-seed-phrase`, `generate-keypair`, `fetch-balance`, `get-latest-block`, `health`, `version`.
 
 ## Links
 

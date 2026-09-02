@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 import os
 
+from .__about__ import __version__
 from .clients import create_blockchain_client
 from .config import get_config
-from .schemas import BalanceRequest
 from .tools_blockchain import (
     get_latest_block,
     get_total_supply,
@@ -17,14 +18,14 @@ from .tools_blockchain import (
     get_transaction_by_hash,
     fetch_transactions,
 )
-from .tools_wallet import get_balance as wallet_balance, fetch_balance as wallet_fetch_balance
+from .tools_wallet import fetch_balance as wallet_fetch_balance
 from .tools_health import health as health_impl, version as version_impl
 from .tools_wallet import generate_seed_phrase as gen_seed_impl, generate_keypair as gen_keypair_impl
 from . import prompts as prompt_catalog
 
 
-# Create the MCP server using the SDK's standard pattern
-mcp = FastMCP("Lineage MCP Server", stateless_http=True)
+# Create the MCP server using the SDK's standard pattern (mcp SDK v2)
+mcp = MCPServer("Lineage MCP Server", version=__version__)
 
 
 @mcp.tool()
@@ -41,70 +42,54 @@ def version() -> dict:
 def blockchain_get_latest_block() -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = get_latest_block(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-balance")
-def wallet_get_balance() -> dict:
-    print("[tool] wallet.get_balance invoked", flush=True)
-    resp = wallet_balance()
-    return resp.model_dump()
+    return get_latest_block(client)
 
 
 @mcp.tool(name="fetch-balance")
 def wallet_fetch_balance_tool(addresses: list[str]) -> dict:
-    print(f"[tool] wallet.fetch_balance invoked with addresses={addresses}", flush=True)
-    resp = wallet_fetch_balance(addresses)
-    return resp.model_dump()
+    return wallet_fetch_balance(addresses)
 
 
 @mcp.tool(name="get-total-supply")
 def blockchain_get_total_supply() -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = get_total_supply(client)
-    return resp.model_dump()
+    return get_total_supply(client)
 
 
 @mcp.tool(name="get-issued-supply")
 def blockchain_get_issued_supply() -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = get_issued_supply(client)
-    return resp.model_dump()
+    return get_issued_supply(client)
 
 
 @mcp.tool(name="get-block-by-number")
 def blockchain_get_block_by_number(height: int) -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = get_block_by_number(client, height)
-    return resp.model_dump()
+    return get_block_by_number(client, height)
 
 
 @mcp.tool(name="get-entry-by-hash")
 def blockchain_get_entry_by_hash(hash: str) -> dict:  # noqa: A002
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = get_entry_by_hash(client, hash)
-    return resp.model_dump()
+    return get_entry_by_hash(client, hash)
 
 
 @mcp.tool(name="get-transaction-by-hash")
 def blockchain_get_transaction_by_hash(tx_hash: str) -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = get_transaction_by_hash(client, tx_hash)
-    return resp.model_dump()
+    return get_transaction_by_hash(client, tx_hash)
 
 
 @mcp.tool(name="fetch-transactions")
 def blockchain_fetch_transactions(tx_hashes: list[str]) -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
-    resp = fetch_transactions(client, tx_hashes)
-    return resp.model_dump()
+    return fetch_transactions(client, tx_hashes)
 
 
 @mcp.tool(name="generate-seed-phrase")
@@ -195,8 +180,16 @@ def _cors_wrapper(inner_app):
     return app
 
 
-# Expose Streamable HTTP ASGI app for the transport at root with minimal CORS
-app = _cors_wrapper(mcp.streamable_http_app())
+# Expose Streamable HTTP ASGI app for the transport at root with minimal CORS.
+# In mcp SDK v2 the stateless flag moved from the constructor to the app factory.
+# DNS-rebinding protection is disabled here (the _cors_wrapper governs origins);
+# leaving it on would default to localhost-only Host/Origin and reject deployed traffic.
+app = _cors_wrapper(
+    mcp.streamable_http_app(
+        stateless_http=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )
+)
 
 
 # Prompts registered via FastMCP.prompt() decorator (SDK standard)
