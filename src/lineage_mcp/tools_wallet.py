@@ -61,3 +61,19 @@ def fetch_balance(addresses: list[str]) -> dict:
 
     payload = result.get_ok()
     return payload if isinstance(payload, dict) else {"ok": True, "balances": payload}
+
+
+def sdk_fetch_balance_result(addresses: list[str]):
+    """Return the raw SDK IResult for a balance lookup (for on-chain verify).
+
+    Unlike fetch_balance (which returns a friendly dict), this preserves the
+    IResult so callers can distinguish ok/err for verification.
+    """
+    cfg_result = lineage.get_config()
+    if not cfg_result.is_ok:
+        return cfg_result
+    wallet = Wallet()
+    init = wallet.init_network(cfg_result.get_ok())
+    if not init.is_ok:
+        return init
+    return wallet.fetch_balance(addresses)
