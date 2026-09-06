@@ -10,7 +10,7 @@ def test_expected_tool_names():
     from lineage_mcp.server import mcp
     names = {t.name for t in anyio.run(mcp.list_tools)}
     expected = {
-        "health", "version", "generate-seed-phrase", "generate-keypair",
+        "health", "version", "generate-seed-phrase", "generate-keypair", "transfer-funds",
         "get-entry-by-hash", "fetch-transactions",
         "get-block", "get-transaction", "get-address-balance", "get-supply", "get-latest-block",
         "list-blocks", "list-transactions", "list-block-transactions",
