@@ -1,25 +1,34 @@
-from types import SimpleNamespace
+from lineage.interfaces import IResult
 
-from lineage_mcp.schemas import BalanceRequest
-from lineage_mcp.tools_blockchain import get_latest_block, get_balance
+from lineage_mcp.tools_blockchain import get_latest_block, get_total_supply
 
 
 class FakeClient:
+    """Stand-in for lineage.BlockchainClient returning SDK-shaped IResults."""
+
+    def __init__(self, *, ok=True):
+        self._ok = ok
+
     def get_latest_block(self):
-        return {"height": 123, "hash": "abc", "timestamp": "2025-01-01T00:00:00Z"}
+        if not self._ok:
+            return IResult.err("node unreachable")
+        return IResult.ok({"content": {"block": {"header": {"b_num": 123}}}})
 
-    def get_balance(self, address: str):
-        return "42"
+    def get_total_supply(self):
+        # The SDK may return a bare scalar; the tool wraps it into a dict.
+        return IResult.ok(1000000)
 
 
-def test_get_latest_block_ok():
+def test_get_latest_block_passes_sdk_payload_through():
     resp = get_latest_block(FakeClient())
-    assert resp.ok and isinstance(resp.raw, dict)
+    assert resp == {"content": {"block": {"header": {"b_num": 123}}}}
 
 
-def test_get_balance_ok():
-    req = BalanceRequest(address="deadbeef")
-    resp = get_balance(FakeClient(), req)
-    assert resp.ok and resp.balance == "42"
+def test_scalar_payload_is_wrapped():
+    resp = get_total_supply(FakeClient())
+    assert resp == {"value": 1000000}
 
 
+def test_error_result_surfaces_sdk_message():
+    resp = get_latest_block(FakeClient(ok=False))
+    assert resp == {"ok": False, "error": "node unreachable"}

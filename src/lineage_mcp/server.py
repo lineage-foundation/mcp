@@ -2,41 +2,46 @@ from __future__ import annotations
 
 from typing import Optional
 from functools import lru_cache
-from decimal import Decimal
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 import os
 
+from .__about__ import __version__
 from .clients import create_blockchain_client
 from .config import get_config
-from .tools_blockchain import (
-    get_latest_block,
-    get_total_supply,
-    get_issued_supply,
-    get_block_by_number,
-    get_entry_by_hash,
-    get_transaction_by_hash,
-    fetch_transactions,
-)
+from .explorer import ExplorerClient
+from .tools_blockchain import get_entry_by_hash, fetch_transactions
 from .tools_wallet import (
-    get_balance as wallet_balance,
-    fetch_balance as wallet_fetch_balance,
+    sdk_fetch_balance_result,
     send_transaction as wallet_send_transaction,
     generate_seed_phrase as gen_seed_impl,
     generate_keypair as gen_keypair_impl,
 )
 from .tools_health import health as health_impl, version as version_impl
 from . import prompts as prompt_catalog
+from . import tools_explorer as te
 
 
-# Create the MCP server using the SDK's standard pattern
-mcp = FastMCP("Lineage MCP Server", stateless_http=True)
+# Create the MCP server using the SDK's standard pattern (mcp SDK v2)
+mcp = MCPServer("Lineage MCP Server", version=__version__)
 
 
 @lru_cache()
 def get_shared_blockchain_client():
     cfg = get_config()
     return create_blockchain_client(cfg)
+
+
+_explorer_client: ExplorerClient | None = None
+
+
+def _explorer() -> ExplorerClient:
+    global _explorer_client
+    if _explorer_client is None:
+        cfg = get_config()
+        _explorer_client = ExplorerClient(cfg.explorer_url, cfg.explorer_timeout_s)
+    return _explorer_client
 
 
 @mcp.tool()
@@ -49,68 +54,85 @@ def version() -> dict:
     return version_impl()
 
 
-@mcp.tool(name="get-latest-block")
-def blockchain_get_latest_block() -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_latest_block(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-balance")
-def wallet_get_balance() -> dict:
-    print("[tool] wallet.get_balance invoked", flush=True)
-    resp = wallet_balance()
-    return resp.model_dump()
-
-
-@mcp.tool(name="fetch-balance")
-def wallet_fetch_balance_tool(addresses: list[str]) -> dict:
-    print(f"[tool] wallet.fetch_balance invoked with addresses={addresses}", flush=True)
-    resp = wallet_fetch_balance(addresses)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-total-supply")
-def blockchain_get_total_supply() -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_total_supply(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-issued-supply")
-def blockchain_get_issued_supply() -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_issued_supply(client)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-block-by-number")
-def blockchain_get_block_by_number(height: int) -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_block_by_number(client, height)
-    return resp.model_dump()
-
+# --- SDK-only tools (no explorer equivalent) ---
 
 @mcp.tool(name="get-entry-by-hash")
 def blockchain_get_entry_by_hash(hash: str) -> dict:  # noqa: A002
-    client = get_shared_blockchain_client()
-    resp = get_entry_by_hash(client, hash)
-    return resp.model_dump()
-
-
-@mcp.tool(name="get-transaction-by-hash")
-def blockchain_get_transaction_by_hash(tx_hash: str) -> dict:
-    client = get_shared_blockchain_client()
-    resp = get_transaction_by_hash(client, tx_hash)
-    return resp.model_dump()
+    return get_entry_by_hash(get_shared_blockchain_client(), hash)
 
 
 @mcp.tool(name="fetch-transactions")
 def blockchain_fetch_transactions(tx_hashes: list[str]) -> dict:
-    client = get_shared_blockchain_client()
-    resp = fetch_transactions(client, tx_hashes)
-    return resp.model_dump()
+    return fetch_transactions(get_shared_blockchain_client(), tx_hashes)
 
+
+# --- Overlap tools (explorer-first + on-chain verify) ---
+
+@mcp.tool(name="get-latest-block")
+def get_latest_block(verify: bool = True) -> dict:
+    sdk = get_shared_blockchain_client()
+    return te.get_latest_block(_explorer(), lambda: sdk.get_latest_block(), verify=verify)
+
+
+@mcp.tool(name="get-block")
+def get_block(id: str, verify: bool = True) -> dict:  # noqa: A002
+    sdk = get_shared_blockchain_client()
+    # Verify the on-chain block by its height; the explorer accepts height or hash.
+    return te.get_block(_explorer(), lambda: sdk.get_block_by_num(int(id)) if str(id).isdigit()
+                        else sdk.get_blockchain_entry(id), id, verify=verify)
+
+
+@mcp.tool(name="get-transaction")
+def get_transaction(hash: str, verify: bool = True) -> dict:  # noqa: A002
+    sdk = get_shared_blockchain_client()
+    return te.get_transaction(_explorer(), lambda: sdk.get_transaction_by_hash(hash), hash, verify=verify)
+
+
+@mcp.tool(name="get-address-balance")
+def get_address_balance(address: str, verify: bool = True) -> dict:
+    return te.get_address_balance(_explorer(), lambda: sdk_fetch_balance_result([address]), address, verify=verify)
+
+
+@mcp.tool(name="get-supply")
+def get_supply(verify: bool = True) -> dict:
+    sdk = get_shared_blockchain_client()
+    return te.get_supply(_explorer(), lambda: sdk.get_total_supply(), verify=verify)
+
+
+# --- Explorer-only tools ---
+
+@mcp.tool(name="list-blocks")
+def list_blocks(limit: int = 20, offset: int = 0, order: str = "desc") -> dict:
+    return te.list_blocks(_explorer(), limit=limit, offset=offset, order=order)
+
+
+@mcp.tool(name="list-transactions")
+def list_transactions(limit: int = 20, offset: int = 0, order: str = "desc") -> dict:
+    return te.list_transactions(_explorer(), limit=limit, offset=offset, order=order)
+
+
+@mcp.tool(name="list-block-transactions")
+def list_block_transactions(id: str) -> dict:  # noqa: A002
+    return te.list_block_transactions(_explorer(), id)
+
+
+@mcp.tool(name="list-address-transactions")
+def list_address_transactions(address: str, limit: int = 20, offset: int = 0) -> dict:
+    return te.list_address_transactions(_explorer(), address, limit=limit, offset=offset)
+
+
+@mcp.tool(name="search-items")
+def search_items(q: Optional[str] = None, genesis: Optional[str] = None,
+                 limit: int = 20, offset: int = 0) -> dict:
+    return te.search_items(_explorer(), q=q, genesis=genesis, limit=limit, offset=offset)
+
+
+@mcp.tool(name="get-status")
+def get_status() -> dict:
+    return te.get_status(_explorer())
+
+
+# --- Wallet tools ---
 
 @mcp.tool(name="generate-seed-phrase")
 def wallet_generate_seed_phrase() -> dict:
@@ -123,23 +145,13 @@ def wallet_generate_keypair(seedPhrase: Optional[str] = None) -> dict:  # noqa: 
 
 
 @mcp.tool(name="transfer-funds")
-def wallet_transfer_funds_tool(destination: str, amount: Decimal) -> dict:
-    print(
-        f"[tool] wallet.transfer_funds invoked with destination={destination}, amount={amount}",
-        flush=True,
-    )
+def wallet_transfer_funds_tool(destination: str, amount: int) -> dict:
+    # amount is in base units (int). Requires LINEAGE_SEED_PHRASE to derive a
+    # spendable wallet under the reworked SDK.
     cfg = get_config()
-    if not cfg.lineage_passphrase:
-        return {
-            "ok": False,
-            "id": "",
-            "status": "Error",
-            "reason": "Server passphrase not configured (LINEAGE_PASSPHRASE)",
-            "route": "wallet.transfer_funds",
-            "content": {},
-        }
-    resp = wallet_send_transaction(destination, amount, cfg.lineage_passphrase)
-    return resp.model_dump()
+    if not cfg.seed_phrase:
+        return {"ok": False, "error": "Server seed phrase not configured (LINEAGE_SEED_PHRASE)"}
+    return wallet_send_transaction(destination, amount, cfg.seed_phrase)
 
 
 def _cors_wrapper(inner_app):
@@ -224,8 +236,16 @@ def _cors_wrapper(inner_app):
     return app
 
 
-# Expose Streamable HTTP ASGI app for the transport at root with minimal CORS
-app = _cors_wrapper(mcp.streamable_http_app())
+# Expose Streamable HTTP ASGI app for the transport at root with minimal CORS.
+# In mcp SDK v2 the stateless flag moved from the constructor to the app factory.
+# DNS-rebinding protection is disabled here (the _cors_wrapper governs origins);
+# leaving it on would default to localhost-only Host/Origin and reject deployed traffic.
+app = _cors_wrapper(
+    mcp.streamable_http_app(
+        stateless_http=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )
+)
 
 
 # Prompts registered via FastMCP.prompt() decorator (SDK standard)
