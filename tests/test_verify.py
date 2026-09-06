@@ -38,6 +38,16 @@ def test_chain_raises_is_unverified():
     assert "kaboom" in v["note"]
 
 
+def _raise(*_):
+    raise RuntimeError("cmp boom")
+
+
+def test_compare_error_is_unverified():
+    verified, v = verify_against_chain({"hash": "h1"}, lambda: IResult.ok({"hash": "h1"}), _raise)
+    assert verified == "unverified"
+    assert "cmp boom" in v["note"]
+
+
 def test_deep_get_nested():
     assert deep_get({"a": {"b": {"hash": "x"}}}, "hash") == "x"
     assert deep_get({"data": [{"num": 5}]}, "num") == 5
