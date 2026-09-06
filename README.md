@@ -34,7 +34,7 @@ MCP server for the Lineage API using Python, uv, and pyproject.
     - Transport: Streamable HTTP
     - URL: `http://localhost:8000/mcp`
     - If using dev auth: set `MCP_DEV_AUTH_TOKEN` on the server and provide `Authorization: Bearer <token>` in Inspector requests.
-  - Try tools: `generate-seed-phrase`, `generate-keypair`, `fetch-balance`, `get-latest-block`, `health`, `version`.
+  - Try tools: `get-status`, `search-items`, `list-blocks`, `get-block`, `get-transaction`, `get-address-balance`, `get-supply`, `generate-seed-phrase`, `health`, `version`.
 
 ## Links
 

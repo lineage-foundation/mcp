@@ -9,19 +9,13 @@ import os
 from .__about__ import __version__
 from .clients import create_blockchain_client
 from .config import get_config
-from .tools_blockchain import (
-    get_latest_block,
-    get_total_supply,
-    get_issued_supply,
-    get_block_by_number,
-    get_entry_by_hash,
-    get_transaction_by_hash,
-    fetch_transactions,
-)
-from .tools_wallet import fetch_balance as wallet_fetch_balance
+from .explorer import ExplorerClient
+from .tools_blockchain import get_entry_by_hash, fetch_transactions
+from .tools_wallet import sdk_fetch_balance_result
 from .tools_health import health as health_impl, version as version_impl
 from .tools_wallet import generate_seed_phrase as gen_seed_impl, generate_keypair as gen_keypair_impl
 from . import prompts as prompt_catalog
+from . import tools_explorer as te
 
 
 # Create the MCP server using the SDK's standard pattern (mcp SDK v2)
@@ -38,39 +32,6 @@ def version() -> dict:
     return version_impl()
 
 
-@mcp.tool(name="get-latest-block")
-def blockchain_get_latest_block() -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
-    return get_latest_block(client)
-
-
-@mcp.tool(name="fetch-balance")
-def wallet_fetch_balance_tool(addresses: list[str]) -> dict:
-    return wallet_fetch_balance(addresses)
-
-
-@mcp.tool(name="get-total-supply")
-def blockchain_get_total_supply() -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
-    return get_total_supply(client)
-
-
-@mcp.tool(name="get-issued-supply")
-def blockchain_get_issued_supply() -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
-    return get_issued_supply(client)
-
-
-@mcp.tool(name="get-block-by-number")
-def blockchain_get_block_by_number(height: int) -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
-    return get_block_by_number(client, height)
-
-
 @mcp.tool(name="get-entry-by-hash")
 def blockchain_get_entry_by_hash(hash: str) -> dict:  # noqa: A002
     cfg = get_config()
@@ -78,18 +39,92 @@ def blockchain_get_entry_by_hash(hash: str) -> dict:  # noqa: A002
     return get_entry_by_hash(client, hash)
 
 
-@mcp.tool(name="get-transaction-by-hash")
-def blockchain_get_transaction_by_hash(tx_hash: str) -> dict:
-    cfg = get_config()
-    client = create_blockchain_client(cfg)
-    return get_transaction_by_hash(client, tx_hash)
-
-
 @mcp.tool(name="fetch-transactions")
 def blockchain_fetch_transactions(tx_hashes: list[str]) -> dict:
     cfg = get_config()
     client = create_blockchain_client(cfg)
     return fetch_transactions(client, tx_hashes)
+
+
+_explorer_client: ExplorerClient | None = None
+
+
+def _explorer() -> ExplorerClient:
+    global _explorer_client
+    if _explorer_client is None:
+        cfg = get_config()
+        _explorer_client = ExplorerClient(cfg.explorer_url, cfg.explorer_timeout_s)
+    return _explorer_client
+
+
+# --- Overlap tools (explorer-first + on-chain verify) ---
+
+@mcp.tool(name="get-latest-block")
+def get_latest_block(verify: bool = True) -> dict:
+    cfg = get_config()
+    sdk = create_blockchain_client(cfg)
+    return te.get_latest_block(_explorer(), lambda: sdk.get_latest_block(), verify=verify)
+
+
+@mcp.tool(name="get-block")
+def get_block(id: str, verify: bool = True) -> dict:  # noqa: A002
+    cfg = get_config()
+    sdk = create_blockchain_client(cfg)
+    # Verify the on-chain block by its height; the explorer accepts height or hash.
+    return te.get_block(_explorer(), lambda: sdk.get_block_by_num(int(id)) if str(id).isdigit()
+                        else sdk.get_blockchain_entry(id), id, verify=verify)
+
+
+@mcp.tool(name="get-transaction")
+def get_transaction(hash: str, verify: bool = True) -> dict:  # noqa: A002
+    cfg = get_config()
+    sdk = create_blockchain_client(cfg)
+    return te.get_transaction(_explorer(), lambda: sdk.get_transaction_by_hash(hash), hash, verify=verify)
+
+
+@mcp.tool(name="get-address-balance")
+def get_address_balance(address: str, verify: bool = True) -> dict:
+    return te.get_address_balance(_explorer(), lambda: sdk_fetch_balance_result([address]), address, verify=verify)
+
+
+@mcp.tool(name="get-supply")
+def get_supply(verify: bool = True) -> dict:
+    cfg = get_config()
+    sdk = create_blockchain_client(cfg)
+    return te.get_supply(_explorer(), lambda: sdk.get_total_supply(), verify=verify)
+
+
+# --- Explorer-only tools ---
+
+@mcp.tool(name="list-blocks")
+def list_blocks(limit: int = 20, offset: int = 0, order: str = "desc") -> dict:
+    return te.list_blocks(_explorer(), limit=limit, offset=offset, order=order)
+
+
+@mcp.tool(name="list-transactions")
+def list_transactions(limit: int = 20, offset: int = 0, order: str = "desc") -> dict:
+    return te.list_transactions(_explorer(), limit=limit, offset=offset, order=order)
+
+
+@mcp.tool(name="list-block-transactions")
+def list_block_transactions(id: str) -> dict:  # noqa: A002
+    return te.list_block_transactions(_explorer(), id)
+
+
+@mcp.tool(name="list-address-transactions")
+def list_address_transactions(address: str, limit: int = 20, offset: int = 0) -> dict:
+    return te.list_address_transactions(_explorer(), address, limit=limit, offset=offset)
+
+
+@mcp.tool(name="search-items")
+def search_items(q: Optional[str] = None, genesis: Optional[str] = None,
+                 limit: int = 20, offset: int = 0) -> dict:
+    return te.search_items(_explorer(), q=q, genesis=genesis, limit=limit, offset=offset)
+
+
+@mcp.tool(name="get-status")
+def get_status() -> dict:
+    return te.get_status(_explorer())
 
 
 @mcp.tool(name="generate-seed-phrase")
