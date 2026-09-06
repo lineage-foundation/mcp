@@ -530,6 +530,7 @@ name = "lineage-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "lineage-sdk" },
     { name = "mcp" },
     { name = "pydantic" },
@@ -548,6 +549,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.28" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28" },
     { name = "lineage-sdk", specifier = ">=1.0.1" },
     { name = "mcp", specifier = ">=2.1,<3" },
