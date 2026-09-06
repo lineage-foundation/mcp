@@ -48,6 +48,19 @@ def test_compare_error_is_unverified():
     assert "cmp boom" in v["note"]
 
 
+def _cmp_absent(_explorer_obj, _chain_payload):
+    return None, None
+
+
+def test_field_absent_on_chain_is_unverified():
+    obj = {"hash": "h1"}
+    verified, v = verify_against_chain(obj, lambda: IResult.ok({}), _cmp_absent)
+    assert verified == "unverified"
+    assert v["matched"] is None
+    assert v["chain_value"] is None
+    assert v["note"] == "chain payload had no comparable field"
+
+
 def test_deep_get_nested():
     assert deep_get({"a": {"b": {"hash": "x"}}}, "hash") == "x"
     assert deep_get({"data": [{"num": 5}]}, "num") == 5

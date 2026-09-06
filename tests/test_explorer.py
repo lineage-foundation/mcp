@@ -54,3 +54,21 @@ def test_transport_error_raises_status_none():
     with pytest.raises(ExplorerError) as e:
         ex.get_status()
     assert e.value.status is None
+
+
+def test_non_json_2xx_body_raises_explorer_error():
+    def handler(request):
+        return httpx.Response(200, text="not json")
+    ex = _client(handler)
+    with pytest.raises(ExplorerError) as e:
+        ex.get_status()
+    assert e.value.status == 200
+
+
+def test_3xx_response_raises_explorer_error():
+    def handler(request):
+        return httpx.Response(302, text="redirect")
+    ex = _client(handler)
+    with pytest.raises(ExplorerError) as e:
+        ex.get_status()
+    assert e.value.status == 302

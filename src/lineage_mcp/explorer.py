@@ -38,7 +38,7 @@ class ExplorerClient:
             resp = self._client.get(f"{_PREFIX}{path}", params=clean)
         except httpx.HTTPError as e:
             raise ExplorerError(str(e) or e.__class__.__name__, status=None) from e
-        if resp.status_code >= 400:
+        if not (200 <= resp.status_code < 300):
             title = ""
             try:
                 body = resp.json()
@@ -46,7 +46,10 @@ class ExplorerClient:
             except Exception:
                 title = resp.text[:200]
             raise ExplorerError(title or "request failed", status=resp.status_code)
-        return resp.json()
+        try:
+            return resp.json()
+        except ValueError as e:
+            raise ExplorerError(f"invalid JSON response: {e}", status=resp.status_code) from e
 
     def get_block(self, id: str | int) -> dict:  # noqa: A002
         return self._get(f"/blocks/{id}")

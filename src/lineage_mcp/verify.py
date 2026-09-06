@@ -46,4 +46,7 @@ def verify_against_chain(
     except Exception as e:  # noqa: BLE001 - a bad payload/compare must not break the tri-state
         return "unverified", {"method": "sdk", "matched": None, "chain_value": None,
                               "note": f"verification error: {e}"}
+    if matched is None:
+        return "unverified", {"method": "sdk", "matched": None, "chain_value": chain_value,
+                              "note": "chain payload had no comparable field"}
     return matched, {"method": "sdk", "matched": matched, "chain_value": chain_value, "note": None}

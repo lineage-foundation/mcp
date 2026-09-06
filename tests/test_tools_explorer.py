@@ -133,3 +133,10 @@ def test_get_supply_verified_on_total():
     ex = FakeExplorer(payload={"total": "360360000000000000", "circulating": "9"})
     resp = te.get_supply(ex, _ok({"total": "360360000000000000"}))
     assert resp["verified"] is True
+
+
+def test_get_transaction_field_absent_on_chain_is_unverified():
+    ex = FakeExplorer(payload={"hash": "h1"})
+    resp = te.get_transaction(ex, _ok({}), "h1")
+    assert resp["ok"] is True
+    assert resp["verified"] == "unverified"

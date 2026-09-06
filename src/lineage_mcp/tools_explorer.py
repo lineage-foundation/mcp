@@ -84,7 +84,9 @@ def _resolve_overlap(explorer_fetch, sdk_call, compare, verify: bool) -> dict:
 def _compare_key(key: str):
     def cmp(explorer_obj, chain_payload):
         chain_value = deep_get(chain_payload, key)
-        return (chain_value is not None and chain_value == explorer_obj.get(key)), chain_value
+        if chain_value is None:
+            return None, None  # field not locatable on-chain -> "unverified", not a mismatch
+        return chain_value == explorer_obj.get(key), chain_value
     return cmp
 
 
