@@ -212,7 +212,8 @@ def test_list_blocks_builds_query():
 
 def test_get_transaction_path_encoded():
     def handler(request):
-        assert request.url.path == "/api/v1/transactions/abc%20def"
+        # httpx decodes .path; the on-the-wire encoded target lives in raw_path (bytes)
+        assert request.url.raw_path == b"/api/v1/transactions/abc%20def"
         return httpx.Response(200, json={"hash": "abc def"})
     ex = _client(handler)
     assert ex.get_transaction("abc def")["hash"] == "abc def"
