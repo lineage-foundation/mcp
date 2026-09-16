@@ -8,6 +8,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 import os
 
 from .__about__ import __version__
+from .landing import INDEX_HTML
 from .clients import create_blockchain_client
 from .config import get_config
 from .explorer import ExplorerClient
@@ -187,13 +188,7 @@ def _cors_wrapper(inner_app):
         path = scope.get("path", "/")
         method = scope.get("method", "GET")
         if method in ("GET", "HEAD") and path in ("/", "/mcp"):
-            html = (
-                "<html><head><title>Lineage MCP Server</title></head><body>"
-                "<h1>Lineage MCP Server</h1>"
-                "<p>To use this service, connect with an MCP-compatible client (e.g., MCP Inspector).</p>"
-                '<p>Docs: <a href="https://modelcontextprotocol.io/">Model Context Protocol</a></p>'
-                "</body></html>"
-            ).encode("utf-8")
+            html = INDEX_HTML.encode("utf-8")
             start = {
                 "type": "http.response.start",
                 "status": 200,
