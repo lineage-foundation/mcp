@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 from functools import lru_cache
+import hmac
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
@@ -197,6 +198,29 @@ def _cors_wrapper(inner_app):
             await send_with_cors(start)
             await send({"type": "http.response.body", "body": html})
             return
+
+        # Optional dev bearer auth (MCP_DEV_AUTH_TOKEN). Exempt CORS preflight
+        # (handled below) and the landing page (handled above). No-op when unset.
+        dev_auth_token = get_config().dev_auth_token
+        if dev_auth_token and method != "OPTIONS":
+            authorized = False
+            for name, value in scope.get("headers", []):
+                if name.lower() == b"authorization":
+                    header_value = value.decode()
+                    if header_value.startswith("Bearer "):
+                        presented = header_value[len("Bearer "):]
+                        authorized = hmac.compare_digest(presented, dev_auth_token)
+                    break
+            if not authorized:
+                body = b'{"error":"unauthorized"}'
+                start = {
+                    "type": "http.response.start",
+                    "status": 401,
+                    "headers": [(b"content-type", b"application/json")],
+                }
+                await send_with_cors(start)
+                await send({"type": "http.response.body", "body": body})
+                return
 
         # Handle clients posting without required Accept header
         if method == "POST" and path in ("/", "/mcp"):

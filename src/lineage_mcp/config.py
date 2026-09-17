@@ -22,6 +22,7 @@ class AppConfig:
     explorer_url: str
     explorer_timeout_s: float
     log_level: str
+    dev_auth_token: Optional[str]
 
 
 def get_config() -> AppConfig:
@@ -35,4 +36,5 @@ def get_config() -> AppConfig:
         explorer_url=os.environ.get("LINEAGE_EXPLORER_URL", "https://explorer.lineage.to"),
         explorer_timeout_s=float(os.environ.get("LINEAGE_EXPLORER_TIMEOUT_S", "10")),
         log_level=os.environ.get("LOG_LEVEL", "INFO"),
+        dev_auth_token=os.environ.get("MCP_DEV_AUTH_TOKEN"),
     )
