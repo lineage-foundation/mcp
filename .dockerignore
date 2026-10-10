@@ -10,7 +10,6 @@ __pycache__
 .mypy_cache
 *.egg-info
 src/*.egg-info
-.superpowers
 docs
 tests
 .env
