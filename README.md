@@ -2,6 +2,8 @@
 
 MCP server for the Lineage API using Python, uv, and pyproject.
 
+[![Lineage on StartupScores](https://startupscores.com/badge/lineage.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/lineage)
+
 ## References
 
 - [MCP Overview](https://modelcontextprotocol.io/)
